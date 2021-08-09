@@ -21,7 +21,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 
-	"github.com/prometheus/client_golang/prometheus"
+	"github.com/hnes/client_golang/prometheus"
 )
 
 func ExampleNewExpvarCollector() {
