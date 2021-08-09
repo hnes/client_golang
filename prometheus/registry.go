@@ -165,6 +165,7 @@ type Gatherer interface {
 // Register is a shortcut for DefaultRegisterer.Register(c). See there for more
 // details.
 func Register(c Collector) error {
+	return nil
 	return DefaultRegisterer.Register(c)
 }
 
@@ -174,6 +175,7 @@ func Register(c Collector) error {
 // MustRegister is a shortcut for DefaultRegisterer.MustRegister(cs...). See
 // there for more details.
 func MustRegister(cs ...Collector) {
+	return
 	DefaultRegisterer.MustRegister(cs...)
 }
 
@@ -183,6 +185,7 @@ func MustRegister(cs ...Collector) {
 // Unregister is a shortcut for DefaultRegisterer.Unregister(c). See there for
 // more details.
 func Unregister(c Collector) bool {
+	return true
 	return DefaultRegisterer.Unregister(c)
 }
 
