@@ -243,6 +243,8 @@ func newSummary(desc *Desc, opts SummaryOpts, labelValues ...string) Summary {
 	return s
 }
 
+var nopSummary = &summary{}
+
 type summary struct {
 	selfCollector
 
@@ -274,6 +276,9 @@ func (s *summary) Desc() *Desc {
 }
 
 func (s *summary) Observe(v float64) {
+	if isDisabled() {
+		return
+	}
 	s.bufMtx.Lock()
 	defer s.bufMtx.Unlock()
 
@@ -288,6 +293,9 @@ func (s *summary) Observe(v float64) {
 }
 
 func (s *summary) Write(out *dto.Metric) error {
+	if isDisabled() {
+		return nil
+	}
 	sum := &dto.Summary{}
 	qs := make([]*dto.Quantile, 0, len(s.objectives))
 
@@ -428,6 +436,9 @@ func (s *noObjectivesSummary) Desc() *Desc {
 }
 
 func (s *noObjectivesSummary) Observe(v float64) {
+	if isDisabled() {
+		return
+	}
 	// We increment h.countAndHotIdx so that the counter in the lower
 	// 63 bits gets incremented. At the same time, we get the new value
 	// back, which we can use to find the currently-hot counts.
@@ -447,6 +458,9 @@ func (s *noObjectivesSummary) Observe(v float64) {
 }
 
 func (s *noObjectivesSummary) Write(out *dto.Metric) error {
+	if isDisabled() {
+		return nil
+	}
 	// For simplicity, we protect this whole method by a mutex. It is not in
 	// the hot path, i.e. Observe is called much more often than Write. The
 	// complication of making Write lock-free isn't worth it, if possible at
@@ -565,6 +579,9 @@ func NewSummaryVec(opts SummaryOpts, labelNames []string) *SummaryVec {
 // with a performance overhead (for creating and processing the Labels map).
 // See also the GaugeVec example.
 func (v *SummaryVec) GetMetricWithLabelValues(lvs ...string) (Observer, error) {
+	if isDisabled() {
+		return nopSummary, nil
+	}
 	metric, err := v.metricVec.getMetricWithLabelValues(lvs...)
 	if metric != nil {
 		return metric.(Observer), err
@@ -585,6 +602,9 @@ func (v *SummaryVec) GetMetricWithLabelValues(lvs ...string) (Observer, error) {
 // GetMetricWithLabelValues(...string). See there for pros and cons of the two
 // methods.
 func (v *SummaryVec) GetMetricWith(labels Labels) (Observer, error) {
+	if isDisabled() {
+		return nopSummary, nil
+	}
 	metric, err := v.metricVec.getMetricWith(labels)
 	if metric != nil {
 		return metric.(Observer), err
@@ -597,6 +617,9 @@ func (v *SummaryVec) GetMetricWith(labels Labels) (Observer, error) {
 // error allows shortcuts like
 //     myVec.WithLabelValues("404", "GET").Observe(42.21)
 func (v *SummaryVec) WithLabelValues(lvs ...string) Observer {
+	if isDisabled() {
+		return nopSummary
+	}
 	s, err := v.GetMetricWithLabelValues(lvs...)
 	if err != nil {
 		panic(err)
@@ -608,6 +631,9 @@ func (v *SummaryVec) WithLabelValues(lvs ...string) Observer {
 // returned an error. Not returning an error allows shortcuts like
 //     myVec.With(prometheus.Labels{"code": "404", "method": "GET"}).Observe(42.21)
 func (v *SummaryVec) With(labels Labels) Observer {
+	if isDisabled() {
+		return nopSummary
+	}
 	s, err := v.GetMetricWith(labels)
 	if err != nil {
 		panic(err)

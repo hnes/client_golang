@@ -87,27 +87,44 @@ type gauge struct {
 	labelPairs []*dto.LabelPair
 }
 
+var nopGauge = &gauge{}
+
 func (g *gauge) Desc() *Desc {
 	return g.desc
 }
 
 func (g *gauge) Set(val float64) {
+	if isDisabled() {
+		return
+	}
 	atomic.StoreUint64(&g.valBits, math.Float64bits(val))
 }
 
 func (g *gauge) SetToCurrentTime() {
+	if isDisabled() {
+		return
+	}
 	g.Set(float64(time.Now().UnixNano()) / 1e9)
 }
 
 func (g *gauge) Inc() {
+	if isDisabled() {
+		return
+	}
 	g.Add(1)
 }
 
 func (g *gauge) Dec() {
+	if isDisabled() {
+		return
+	}
 	g.Add(-1)
 }
 
 func (g *gauge) Add(val float64) {
+	if isDisabled() {
+		return
+	}
 	for {
 		oldBits := atomic.LoadUint64(&g.valBits)
 		newBits := math.Float64bits(math.Float64frombits(oldBits) + val)
@@ -118,10 +135,16 @@ func (g *gauge) Add(val float64) {
 }
 
 func (g *gauge) Sub(val float64) {
+	if isDisabled() {
+		return
+	}
 	g.Add(val * -1)
 }
 
 func (g *gauge) Write(out *dto.Metric) error {
+	if isDisabled() {
+		return nil
+	}
 	val := math.Float64frombits(atomic.LoadUint64(&g.valBits))
 	return populateMetric(GaugeValue, val, g.labelPairs, nil, out)
 }
@@ -180,6 +203,9 @@ func NewGaugeVec(opts GaugeOpts, labelNames []string) *GaugeVec {
 // latter has a much more readable (albeit more verbose) syntax, but it comes
 // with a performance overhead (for creating and processing the Labels map).
 func (v *GaugeVec) GetMetricWithLabelValues(lvs ...string) (Gauge, error) {
+	if isDisabled() {
+		return nopGauge, nil
+	}
 	metric, err := v.metricVec.getMetricWithLabelValues(lvs...)
 	if metric != nil {
 		return metric.(Gauge), err
@@ -200,6 +226,9 @@ func (v *GaugeVec) GetMetricWithLabelValues(lvs ...string) (Gauge, error) {
 // GetMetricWithLabelValues(...string). See there for pros and cons of the two
 // methods.
 func (v *GaugeVec) GetMetricWith(labels Labels) (Gauge, error) {
+	if isDisabled() {
+		return nopGauge, nil
+	}
 	metric, err := v.metricVec.getMetricWith(labels)
 	if metric != nil {
 		return metric.(Gauge), err
@@ -212,6 +241,9 @@ func (v *GaugeVec) GetMetricWith(labels Labels) (Gauge, error) {
 // error allows shortcuts like
 //     myVec.WithLabelValues("404", "GET").Add(42)
 func (v *GaugeVec) WithLabelValues(lvs ...string) Gauge {
+	if isDisabled() {
+		return nopGauge
+	}
 	g, err := v.GetMetricWithLabelValues(lvs...)
 	if err != nil {
 		panic(err)
@@ -223,6 +255,9 @@ func (v *GaugeVec) WithLabelValues(lvs ...string) Gauge {
 // returned an error. Not returning an error allows shortcuts like
 //     myVec.With(prometheus.Labels{"code": "404", "method": "GET"}).Add(42)
 func (v *GaugeVec) With(labels Labels) Gauge {
+	if isDisabled() {
+		return nopGauge
+	}
 	g, err := v.GetMetricWith(labels)
 	if err != nil {
 		panic(err)

@@ -100,11 +100,16 @@ type counter struct {
 	now func() time.Time // To mock out time.Now() for testing.
 }
 
+var nopCounter = &counter{}
+
 func (c *counter) Desc() *Desc {
 	return c.desc
 }
 
 func (c *counter) Add(v float64) {
+	if isDisabled() {
+		return
+	}
 	if v < 0 {
 		panic(errors.New("counter cannot decrease in value"))
 	}
@@ -125,11 +130,17 @@ func (c *counter) Add(v float64) {
 }
 
 func (c *counter) AddWithExemplar(v float64, e Labels) {
+	if isDisabled() {
+		return
+	}
 	c.Add(v)
 	c.updateExemplar(v, e)
 }
 
 func (c *counter) Inc() {
+	if isDisabled() {
+		return
+	}
 	atomic.AddUint64(&c.valInt, 1)
 }
 
@@ -211,6 +222,9 @@ func NewCounterVec(opts CounterOpts, labelNames []string) *CounterVec {
 // with a performance overhead (for creating and processing the Labels map).
 // See also the GaugeVec example.
 func (v *CounterVec) GetMetricWithLabelValues(lvs ...string) (Counter, error) {
+	if isDisabled() {
+		return nopCounter, nil
+	}
 	metric, err := v.metricVec.getMetricWithLabelValues(lvs...)
 	if metric != nil {
 		return metric.(Counter), err
@@ -231,6 +245,9 @@ func (v *CounterVec) GetMetricWithLabelValues(lvs ...string) (Counter, error) {
 // GetMetricWithLabelValues(...string). See there for pros and cons of the two
 // methods.
 func (v *CounterVec) GetMetricWith(labels Labels) (Counter, error) {
+	if isDisabled() {
+		return nopCounter, nil
+	}
 	metric, err := v.metricVec.getMetricWith(labels)
 	if metric != nil {
 		return metric.(Counter), err
@@ -243,6 +260,9 @@ func (v *CounterVec) GetMetricWith(labels Labels) (Counter, error) {
 // error allows shortcuts like
 //     myVec.WithLabelValues("404", "GET").Add(42)
 func (v *CounterVec) WithLabelValues(lvs ...string) Counter {
+	if isDisabled() {
+		return nopCounter
+	}
 	c, err := v.GetMetricWithLabelValues(lvs...)
 	if err != nil {
 		panic(err)
@@ -254,6 +274,9 @@ func (v *CounterVec) WithLabelValues(lvs ...string) Counter {
 // returned an error. Not returning an error allows shortcuts like
 //     myVec.With(prometheus.Labels{"code": "404", "method": "GET"}).Add(42)
 func (v *CounterVec) With(labels Labels) Counter {
+	if isDisabled() {
+		return nopCounter
+	}
 	c, err := v.GetMetricWith(labels)
 	if err != nil {
 		panic(err)

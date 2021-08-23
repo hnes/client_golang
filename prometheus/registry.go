@@ -31,7 +31,7 @@ import (
 
 	dto "github.com/prometheus/client_model/go"
 
-	"github.com/prometheus/client_golang/prometheus/internal"
+	"github.com/hnes/client_golang/prometheus/internal"
 )
 
 const (
@@ -55,11 +55,23 @@ var (
 	defaultRegistry              = NewRegistry()
 	DefaultRegisterer Registerer = defaultRegistry
 	DefaultGatherer   Gatherer   = defaultRegistry
+	// disable prom if false
+	// don't use atomic yet for the reason of performance
+	globalEnabledFlag = true
 )
 
 func init() {
 	MustRegister(NewProcessCollector(ProcessCollectorOpts{}))
 	MustRegister(NewGoCollector())
+}
+
+// disable prom
+func Disable() {
+	globalEnabledFlag = false
+}
+
+func isDisabled() bool {
+	return !globalEnabledFlag
 }
 
 // NewRegistry creates a new vanilla Registry without any Collectors
@@ -165,6 +177,9 @@ type Gatherer interface {
 // Register is a shortcut for DefaultRegisterer.Register(c). See there for more
 // details.
 func Register(c Collector) error {
+	if isDisabled() {
+		return nil
+	}
 	return DefaultRegisterer.Register(c)
 }
 
@@ -174,6 +189,9 @@ func Register(c Collector) error {
 // MustRegister is a shortcut for DefaultRegisterer.MustRegister(cs...). See
 // there for more details.
 func MustRegister(cs ...Collector) {
+	if isDisabled() {
+		return
+	}
 	DefaultRegisterer.MustRegister(cs...)
 }
 
@@ -183,6 +201,9 @@ func MustRegister(cs ...Collector) {
 // Unregister is a shortcut for DefaultRegisterer.Unregister(c). See there for
 // more details.
 func Unregister(c Collector) bool {
+	if isDisabled() {
+		return true
+	}
 	return DefaultRegisterer.Unregister(c)
 }
 
@@ -263,6 +284,9 @@ type Registry struct {
 
 // Register implements Registerer.
 func (r *Registry) Register(c Collector) error {
+	if isDisabled() {
+		return nil
+	}
 	var (
 		descChan           = make(chan *Desc, capDescChan)
 		newDescIDs         = map[uint64]struct{}{}
@@ -358,6 +382,9 @@ func (r *Registry) Register(c Collector) error {
 
 // Unregister implements Registerer.
 func (r *Registry) Unregister(c Collector) bool {
+	if isDisabled() {
+		return true
+	}
 	var (
 		descChan    = make(chan *Desc, capDescChan)
 		descIDs     = map[uint64]struct{}{}
