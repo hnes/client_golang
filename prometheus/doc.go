@@ -31,8 +31,8 @@
 //    	"log"
 //    	"net/http"
 //
-//    	"github.com/prometheus/client_golang/prometheus"
-//    	"github.com/prometheus/client_golang/prometheus/promhttp"
+//    	"github.com/hnes/client_golang/prometheus"
+//    	"github.com/hnes/client_golang/prometheus/promhttp"
 //    )
 //
 //    var (
